@@ -1,0 +1,11 @@
+src/sistemadegestaodeinventario/persistencia/GestorFicheiros.java
+src/sistemadegestaodeinventario/SistemaDeGestaoDeInventario.java
+src/sistemadegestaodeinventario/ui/Menu.java
+src/sistemadegestaodeinventario/modelo/ItemVenda.java
+src/sistemadegestaodeinventario/modelo/Loja.java
+src/sistemadegestaodeinventario/modelo/Produto.java
+src/sistemadegestaodeinventario/modelo/Usuario.java
+src/sistemadegestaodeinventario/modelo/Venda.java
+src/sistemadegestaodeinventario/negocio/InventarioManager.java
+src/sistemadegestaodeinventario/negocio/LojaManager.java
+src/sistemadegestaodeinventario/negocio/UsuarioManager.java
