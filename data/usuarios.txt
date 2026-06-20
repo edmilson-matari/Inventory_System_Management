@@ -1,1 +1,2 @@
-956293575|matari123
+956293575|matari123|NORMAL
+admin@system|Admin1234|ADMIN

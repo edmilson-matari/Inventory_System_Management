@@ -1,12 +1,24 @@
 package sistemadegestaodeinventario.modelo;
 
 public class Usuario {
+
+    public enum Perfil {
+        ADMIN,
+        NORMAL
+    }
+
     private String emailOuTelefone;
     private String senha;
+    private Perfil perfil;
 
     public Usuario(String emailOuTelefone, String senha) {
+        this(emailOuTelefone, senha, Perfil.NORMAL);
+    }
+
+    public Usuario(String emailOuTelefone, String senha, Perfil perfil) {
         setEmailOuTelefone(emailOuTelefone);
         setSenha(senha);
+        setPerfil(perfil);
     }
 
     public String getEmailOuTelefone() {
@@ -31,6 +43,18 @@ public class Usuario {
         this.senha = senha;
     }
 
+    public Perfil getPerfil() {
+        return perfil;
+    }
+
+    public void setPerfil(Perfil perfil) {
+        this.perfil = perfil == null ? Perfil.NORMAL : perfil;
+    }
+
+    public boolean isAdmin() {
+        return perfil == Perfil.ADMIN;
+    }
+
     public boolean autenticar(String credencial, String senha) {
         return this.emailOuTelefone.equals(credencial) && this.senha.equals(senha);
     }
@@ -41,6 +65,6 @@ public class Usuario {
 
     @Override
     public String toString() {
-        return emailOuTelefone;
+        return emailOuTelefone + " [" + perfil + "]";
     }
 }

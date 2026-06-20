@@ -42,7 +42,8 @@ public class GestorFicheiros {
 				}
 				String[] partes = linha.split("\\|", -1);
 				if (partes.length >= 2) {
-					usuarios.add(new Usuario(partes[0], partes[1]));
+					Usuario.Perfil perfil = partes.length >= 3 ? lerPerfil(partes[2]) : Usuario.Perfil.NORMAL;
+					usuarios.add(new Usuario(partes[0], partes[1], perfil));
 				}
 			}
 		} catch (IOException e) {
@@ -55,7 +56,10 @@ public class GestorFicheiros {
 		Path ficheiro = dataDir.resolve("usuarios.txt");
 		List<String> linhas = new ArrayList<>();
 		for (Usuario usuario : usuarios) {
-			linhas.add(usuario.getEmailOuTelefone() + "|" + usuario.getSenha());
+			linhas.add(String.join("|",
+				usuario.getEmailOuTelefone(),
+				usuario.getSenha(),
+				usuario.getPerfil().name()));
 		}
 		escreverLinhas(ficheiro, linhas);
 	}
@@ -76,8 +80,8 @@ public class GestorFicheiros {
 					Loja loja = new Loja(partes[0], partes[1], partes[2], partes[3]);
 					carregarProdutos(loja);
 					List<Venda> vendas = carregarVendas(loja.getIdLoja());
-					for (Venda v : vendas) {
-						loja.registarVenda(v);
+					for (Venda venda : vendas) {
+						loja.registarVenda(venda);
 					}
 					lojas.add(loja);
 				}
@@ -93,7 +97,7 @@ public class GestorFicheiros {
 		List<String> linhas = new ArrayList<>();
 		for (Loja loja : lojas) {
 			linhas.add(String.join("|",
-					loja.getIdLoja(), loja.getNome(), loja.getEndereco(), loja.getTelefone()));
+				loja.getIdLoja(), loja.getNome(), loja.getEndereco(), loja.getTelefone()));
 			salvarProdutos(loja);
 			salvarVendas(loja.getIdLoja(), loja.listarVendas());
 		}
@@ -105,12 +109,12 @@ public class GestorFicheiros {
 		List<String> linhas = new ArrayList<>();
 		for (Produto produto : loja.listarProdutos()) {
 			linhas.add(String.join("|",
-					produto.getIdProduto(),
-					produto.getNome(),
-					produto.getDescricao(),
-					String.valueOf(produto.getPreco()),
-					String.valueOf(produto.getQuantidadeEmStock()),
-					String.valueOf(produto.getQuantidadeMinima())));
+				produto.getIdProduto(),
+				produto.getNome(),
+				produto.getDescricao(),
+				String.valueOf(produto.getPreco()),
+				String.valueOf(produto.getQuantidadeEmStock()),
+				String.valueOf(produto.getQuantidadeMinima())));
 		}
 		escreverLinhas(ficheiro, linhas);
 	}
@@ -128,12 +132,12 @@ public class GestorFicheiros {
 				String[] partes = linha.split("\\|", -1);
 				if (partes.length >= 6) {
 					loja.adicionarProduto(new Produto(
-							partes[0],
-							partes[1],
-							partes[2],
-							Double.parseDouble(partes[3]),
-							Integer.parseInt(partes[4]),
-							Integer.parseInt(partes[5])));
+						partes[0],
+						partes[1],
+						partes[2],
+						Double.parseDouble(partes[3]),
+						Integer.parseInt(partes[4]),
+						Integer.parseInt(partes[5])));
 				}
 			}
 		} catch (IOException e) {
@@ -148,14 +152,14 @@ public class GestorFicheiros {
 		for (Venda venda : vendas) {
 			for (ItemVenda item : venda.getItensVenda()) {
 				linhas.add(String.join(",",
-						venda.getIdVenda(),
-						venda.getDataVenda().toString(),
-						venda.getIdLoja(),
-						item.idProduto(),
-						item.nomeProduto(),
-						String.valueOf(item.quantidade()),
-						String.valueOf(item.precoUnitario()),
-						String.valueOf(item.subtotal())));
+					venda.getIdVenda(),
+					venda.getDataVenda().toString(),
+					venda.getIdLoja(),
+					item.idProduto(),
+					item.nomeProduto(),
+					String.valueOf(item.quantidade()),
+					String.valueOf(item.precoUnitario()),
+					String.valueOf(item.subtotal())));
 			}
 		}
 		escreverLinhas(ficheiro, linhas);
@@ -183,10 +187,10 @@ public class GestorFicheiros {
 						porId.put(partes[0], venda);
 					}
 					venda.adicionarItem(new ItemVenda(
-							partes[3],
-							partes[4],
-							Integer.parseInt(partes[5]),
-							Double.parseDouble(partes[6])));
+						partes[3],
+						partes[4],
+						Integer.parseInt(partes[5]),
+						Double.parseDouble(partes[6])));
 				}
 			}
 			vendas.addAll(porId.values());
@@ -194,6 +198,52 @@ public class GestorFicheiros {
 			throw new IllegalStateException("Erro ao carregar vendas.", e);
 		}
 		return vendas;
+	}
+
+	public Loja importarLojaCSV(String caminhoFicheiro) {
+		Path ficheiro = Paths.get(caminhoFicheiro);
+		if (!Files.exists(ficheiro)) {
+			throw new IllegalArgumentException("Ficheiro nao encontrado: " + caminhoFicheiro);
+		}
+		try {
+			List<String> linhas = Files.readAllLines(ficheiro, StandardCharsets.UTF_8);
+			int index = 0;
+			while (index < linhas.size() && linhas.get(index).isBlank()) {
+				index++;
+			}
+			if (index >= linhas.size()) {
+				throw new IllegalArgumentException("Ficheiro CSV vazio ou sem conteudo util.");
+			}
+			String cabecalho = linhas.get(index).trim();
+			String[] partesLoja = cabecalho.split(",", -1);
+			if (partesLoja.length < 4) {
+				throw new IllegalArgumentException("Cabecalho da loja invalido. Formato esperado: id,nome,morada,telefone");
+			}
+			Loja loja = new Loja(partesLoja[0].trim(), partesLoja[1].trim(), partesLoja[2].trim(), partesLoja[3].trim());
+			for (int i = index + 1; i < linhas.size(); i++) {
+				String linha = linhas.get(i).trim();
+				if (linha.isBlank()) {
+					continue;
+				}
+				String[] p = linha.split(",", -1);
+				if (p.length < 6) {
+					throw new IllegalArgumentException("Linha de produto invalida na linha " + (i + 1) + ". Formato esperado: id,nome,descricao,preco,quantidade,quantidadeMinima");
+				}
+				Produto produto = new Produto(
+					p[0].trim(),
+					p[1].trim(),
+					p[2].trim(),
+					Double.parseDouble(p[3].trim()),
+					Integer.parseInt(p[4].trim()),
+					Integer.parseInt(p[5].trim()));
+				loja.adicionarProduto(produto);
+			}
+			return loja;
+		} catch (IOException e) {
+			throw new IllegalArgumentException("Erro ao ler o ficheiro: " + e.getMessage(), e);
+		} catch (NumberFormatException e) {
+			throw new IllegalArgumentException("Erro ao converter numeros no ficheiro CSV: " + e.getMessage(), e);
+		}
 	}
 
 	public boolean verificarIntegridade() {
@@ -208,6 +258,17 @@ public class GestorFicheiros {
 			copiarSeExistir(dataDir.resolve("usuarios.txt"), backupDir.resolve("usuarios.txt"));
 		} catch (IOException e) {
 			throw new IllegalStateException("Erro ao criar backup.", e);
+		}
+	}
+
+	private Usuario.Perfil lerPerfil(String valor) {
+		if (valor == null) {
+			return Usuario.Perfil.NORMAL;
+		}
+		try {
+			return Usuario.Perfil.valueOf(valor.trim().toUpperCase());
+		} catch (IllegalArgumentException e) {
+			return Usuario.Perfil.NORMAL;
 		}
 	}
 

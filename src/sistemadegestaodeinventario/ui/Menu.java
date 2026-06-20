@@ -15,6 +15,10 @@ import sistemadegestaodeinventario.negocio.UsuarioManager;
 import sistemadegestaodeinventario.persistencia.GestorFicheiros;
 
 public class Menu {
+    private static final String ADMIN_PADRAO_CREDENCIAL = "admin@system";
+    private static final String ADMIN_PADRAO_SENHA = "Admin1234";
+    private final String os = System.getProperty("os.name");
+
     private final Scanner scanner;
     private final GestorFicheiros gestorFicheiros;
     private final UsuarioManager usuarioManager;
@@ -35,32 +39,22 @@ public class Menu {
         boolean ativo = true;
         while (ativo && usuarioAutenticado == null) {
             System.out.println("AUTENTICACAO DE USUARIO");
-            System.out.println("1. Login");
-            System.out.println("2. Cadastrar novo usuario");
+            System.out.println("1. Login Normal");
+            System.out.println("2. Login Admin");
             System.out.println("0. Sair");
             int op = lerInteiro("Escolha uma opcao: ");
             switch (op) {
-                case 1 -> fazerLogin();
-                case 2 -> cadastrarUsuario();
+                case 1 -> fazerLoginNormal();
+                case 2 -> fazerLoginAdmin();
                 case 0 -> ativo = false;
                 default -> System.out.println("Opcao invalida.");
             }
         }
         while (ativo && usuarioAutenticado != null) {
-            exibirMenuPrincipal();
-            int opcao = lerInteiro("Escolha uma opcao: ");
-            switch (opcao) {
-                case 1 -> menuLojas();
-                case 2 -> menuProdutos();
-                case 3 -> menuVendas();
-                case 4 -> menuRelatorios();
-                case 5 -> menuConfiguracao();
-                case 0 -> {
-                    salvarDados();
-                    ativo = false;
-                    System.out.println("Sistema encerrado com sucesso.");
-                }
-                default -> System.out.println("Opcao invalida.");
+            if (usuarioAutenticado.isAdmin()) {
+                ativo = executarSessaoAdmin();
+            } else {
+                ativo = executarSessaoNormal();
             }
         }
         scanner.close();
@@ -76,6 +70,11 @@ public class Menu {
         for (Loja loja : gestorFicheiros.carregarLojas()) {
             inventarioManager.adicionarLoja(loja);
         }
+        if (!existeAdministrador()) {
+            usuarioManager.adicionarUsuario(new Usuario(ADMIN_PADRAO_CREDENCIAL, ADMIN_PADRAO_SENHA, Usuario.Perfil.ADMIN));
+            salvarDados();
+            System.out.println("Conta admin inicial criada: " + ADMIN_PADRAO_CREDENCIAL + " / " + ADMIN_PADRAO_SENHA);
+        }
     }
 
     private void salvarDados() {
@@ -83,20 +82,86 @@ public class Menu {
         gestorFicheiros.salvarLojas(inventarioManager.getLojasOrdenadas());
     }
 
-    private void fazerLogin() {
+    private boolean executarSessaoAdmin() {
+        boolean ativo = true;
+        while (ativo && usuarioAutenticado != null && usuarioAutenticado.isAdmin()) {
+            exibirMenuPrincipalAdmin();
+            int opcao = lerInteiro("Escolha uma opcao: ");
+            switch (opcao) {
+                case 1 -> menuLojas();
+                case 2 -> menuProdutos();
+                case 3 -> menuVendas();
+                case 4 -> menuRelatorios();
+                case 5 -> menuConfiguracao();
+                case 0 -> {
+                    salvarDados();
+                    usuarioAutenticado = null;
+                    ativo = false;
+                    System.out.println("Sessao terminada com sucesso.");
+                }
+                default -> System.out.println("Opcao invalida.");
+            }
+        }
+        return ativo;
+    }
+
+    private boolean executarSessaoNormal() {
+        boolean ativo = true;
+        while (ativo && usuarioAutenticado != null && !usuarioAutenticado.isAdmin()) {
+            exibirMenuPrincipalNormal();
+            int opcao = lerInteiro("Escolha uma opcao: ");
+            switch (opcao) {
+                case 1 -> iniciarNovaVenda();
+                case 0 -> {
+                    salvarDados();
+                    usuarioAutenticado = null;
+                    ativo = false;
+                    System.out.println("Sessao terminada com sucesso.");
+                }
+                default -> System.out.println("Opcao invalida.");
+            }
+        }
+        return ativo;
+    }
+
+    private void fazerLoginNormal() {
         String credencial = lerTexto("Email/Telefone: ");
         String senha = lerTexto("Senha: ");
         Usuario usuario = usuarioManager.autenticar(credencial, senha);
-        if (usuario != null) {
+        
+        if (usuario != null && !usuario.isAdmin()) {
             usuarioAutenticado = usuario;
             System.out.println("Login efetuado com sucesso.");
+        } else if (usuario != null) {
+            System.out.println("Esta conta é de administrador. Use o login de admin.");
         } else {
             System.out.println("Credenciais invalidas.");
         }
     }
 
-    private void cadastrarUsuario() {
+    private void clearTerminal() {
+        System.out.print("\033[H\033[2J");
+        System.out.flush();
+    }
+
+    private void fazerLoginAdmin() {
+        String credencial = lerTexto("Email/Telefone: ");
+        String senha = lerTexto("Senha: ");
+        Usuario usuario = usuarioManager.autenticar(credencial, senha);
+        
+        if (usuario != null && usuario.isAdmin()) {
+            usuarioAutenticado = usuario;
+            System.out.println("Login de administrador efetuado com sucesso.");
+        } else if (usuario != null) {
+            System.out.println("Esta conta é normal. Use o login normal.");
+        } else {
+            System.out.println("Credenciais invalidas.");
+        }
+    }
+
+    private void criarUsuario() {
         String credencial;
+        
         while (true) {
             credencial = lerTexto("Digite email ou numero de telemovel: ");
             boolean isTelefone = credencial.matches("\\d{9}");
@@ -120,32 +185,47 @@ public class Menu {
             }
             break;
         }
-        Usuario usuario = new Usuario(credencial, senha);
+        Usuario.Perfil perfil = lerPerfilUsuario("Perfil (ADMIN/NORMAL): ");
+        Usuario usuario = new Usuario(credencial, senha, perfil);
         usuarioManager.adicionarUsuario(usuario);
-        usuarioAutenticado = usuario;
         salvarDados();
-        System.out.println("Usuario cadastrado e autenticado com sucesso.");
+        System.out.println("Usuario criado com sucesso.");
     }
 
-    private void exibirMenuPrincipal() {
-        System.out.println("MENU PRINCIPAL");
+    private void exibirMenuPrincipalAdmin() {
+        
+        System.out.println("==========================");
+        System.out.println("| MENU PRINCIPAL - ADMIN |");
+        System.out.println("==========================");
         System.out.println("1. Gestao de Lojas");
         System.out.println("2. Gestao de Produtos");
         System.out.println("3. Registar Vendas");
         System.out.println("4. Relatorios e Consultas");
         System.out.println("5. Configuracao do Sistema");
-        System.out.println("0. Sair");
+        System.out.println("0. Terminar Sessao");
+    }
+
+    private void exibirMenuPrincipalNormal() {
+        System.out.println("=====================================");
+        System.out.println("| MENU PRINCIPAL - UTILIZADOR NORMAL |");
+        System.out.println("=====================================");
+        System.out.println("1. Registar Vendas");
+        System.out.println("0. Terminar Sessao");
     }
 
     private void menuLojas() {
+        
         boolean voltar = false;
         while (!voltar) {
-            System.out.println("GESTAO DE LOJAS");
+            System.out.println("===================");
+            System.out.println("| GESTAO DE LOJAS |");
+            System.out.println("===================");
             System.out.println("1. Adicionar Loja");
             System.out.println("2. Listar Todas as Lojas");
             System.out.println("3. Selecionar Loja");
             System.out.println("4. Ver Detalhes da Loja Ativa");
             System.out.println("5. Deletar Loja");
+            System.out.println("6. Importar Loja via CSV");
             System.out.println("0. Voltar ao Menu Principal");
             switch (lerInteiro("Escolha uma opcao: ")) {
                 case 1 -> adicionarLoja();
@@ -153,6 +233,7 @@ public class Menu {
                 case 3 -> selecionarLoja();
                 case 4 -> verDetalhesLojaAtiva();
                 case 5 -> deletarLoja();
+                case 6 -> importarLojaCSV();
                 case 0 -> voltar = true;
                 default -> System.out.println("Opcao invalida.");
             }
@@ -160,9 +241,12 @@ public class Menu {
     }
 
     private void menuProdutos() {
+        
         boolean voltar = false;
         while (!voltar) {
-            System.out.println("GESTAO DE PRODUTOS");
+            System.out.println("=====================");
+            System.out.println("| GESTAO DE PRODUTOS |");
+            System.out.println("=====================");
             System.out.println("1. Adicionar Produto a Loja");
             System.out.println("2. Listar Produtos da Loja");
             System.out.println("3. Consultar Stock de Produto");
@@ -184,9 +268,12 @@ public class Menu {
     }
 
     private void menuVendas() {
+        
         boolean voltar = false;
         while (!voltar) {
-            System.out.println("REGISTAR VENDAS");
+            System.out.println("===================");
+            System.out.println("| REGISTAR VENDAS |");
+            System.out.println("===================");
             System.out.println("1. Iniciar Nova Venda");
             System.out.println("2. Ver Historico de Vendas");
             System.out.println("3. Valor Total de Vendas");
@@ -202,9 +289,13 @@ public class Menu {
     }
 
     private void menuRelatorios() {
+        
         boolean voltar = false;
         while (!voltar) {
-            System.out.println("RELATORIOS");
+            System.out.println("==============");
+            System.out.println("| RELATORIOS |");
+            System.out.println("==============");
+
             System.out.println("1. Relatorio da Loja Atual");
             System.out.println("2. Inventario Completo");
             System.out.println("3. Relatorio do Sistema");
@@ -220,24 +311,56 @@ public class Menu {
     }
 
     private void menuConfiguracao() {
+        
         boolean voltar = false;
         while (!voltar) {
-            System.out.println("CONFIGURACAO");
+            System.out.println("================");
+            System.out.println("| CONFIGURACAO |");
+            System.out.println("================");
             System.out.println("1. Informacoes do Sistema");
             System.out.println("2. Criar Backup de Dados");
             System.out.println("3. Dados de Teste");
+            System.out.println("4. Gestao de Utilizadores");
             System.out.println("0. Voltar ao Menu Principal");
             switch (lerInteiro("Escolha uma opcao: ")) {
                 case 1 -> mostrarInformacoesSistema();
                 case 2 -> { gestorFicheiros.criarBackup(); System.out.println("Backup criado com sucesso."); }
                 case 3 -> inserirDadosTeste();
+                case 4 -> menuUsuarios();
                 case 0 -> voltar = true;
                 default -> System.out.println("Opcao invalida.");
             }
         }
     }
 
+    private void menuUsuarios() {
+        
+        boolean voltar = false;
+        while (!voltar) {
+            System.out.println("==========================");
+            System.out.println("| GESTAO DE UTILIZADORES |");
+            System.out.println("==========================");
+            System.out.println("1. Criar Novo Utilizador");
+            System.out.println("2. Listar Utilizadores");
+            System.out.println("0. Voltar");
+            switch (lerInteiro("Escolha uma opcao: ")) {
+                case 1 -> criarUsuario();
+                case 2 -> listarUsuarios();
+                case 0 -> voltar = true;
+                default -> System.out.println("Opcao invalida.");
+            }
+        }
+    }
+
+    private void listarUsuarios() {
+        
+        for (Usuario usuario : usuarioManager.listarUsuarios()) {
+            System.out.println(usuario);
+        }
+    }
+
     private void adicionarLoja() {
+        
         String id = lerTexto("ID da loja: ");
         if (inventarioManager.existeLoja(id)) { System.out.println("Ja existe uma loja com este ID."); return; }
         String nome = lerTexto("Nome da loja: ");
@@ -249,18 +372,21 @@ public class Menu {
     }
 
     private void listarLojas() {
+        
         List<Loja> lojas = inventarioManager.getLojasOrdenadas();
         if (lojas.isEmpty()) { System.out.println("Nenhuma loja registada."); return; }
         for (Loja loja : lojas) System.out.println(loja);
     }
 
     private void selecionarLoja() {
+        
         String id = lerTexto("ID da loja a selecionar: ");
         if (lojaManager.selecionarLoja(id)) System.out.println("Loja selecionada com sucesso: " + lojaManager.getLojaAtual().getNome());
         else System.out.println("Loja nao encontrada.");
     }
 
     private void verDetalhesLojaAtiva() {
+        
         if (lojaManager.getLojaAtual() == null) { System.out.println("Nenhuma loja selecionada."); return; }
         System.out.println(lojaManager.getLojaAtual());
         System.out.println("Produtos: " + lojaManager.getLojaAtual().listarProdutos().size());
@@ -269,6 +395,7 @@ public class Menu {
     }
 
     private void adicionarProduto() {
+        
         Loja loja = lojaManager.getLojaAtual();
         if (loja == null) { System.out.println("Selecione uma loja primeiro."); return; }
         Loja atual = lojaManager.getLojaAtual();
@@ -279,6 +406,7 @@ public class Menu {
     }
 
     private void listarProdutosDaLoja() {
+        
         Loja loja = lojaManager.getLojaAtual();
         if (loja == null) { System.out.println("Selecione uma loja primeiro."); return; }
         if (loja.listarProdutos().isEmpty()) { System.out.println("Sem produtos registados."); return; }
@@ -286,6 +414,7 @@ public class Menu {
     }
 
     private void consultarStockProduto() {
+        
         Loja loja = lojaManager.getLojaAtual();
         if (loja == null) { System.out.println("Selecione uma loja primeiro."); return; }
         Produto produto = loja.consultarProduto(lerTexto("ID do produto: "));
@@ -294,6 +423,7 @@ public class Menu {
     }
 
     private void aumentarStockProduto() {
+        
         Loja loja = lojaManager.getLojaAtual();
         if (loja == null) { System.out.println("Selecione uma loja primeiro."); return; }
         Produto produto = loja.consultarProduto(lerTexto("ID do produto: "));
@@ -304,6 +434,7 @@ public class Menu {
     }
 
     private void listarProdutosStockBaixo() {
+        
         Loja loja = lojaManager.getLojaAtual();
         if (loja == null) { System.out.println("Selecione uma loja primeiro."); return; }
         boolean encontrado = false;
@@ -314,7 +445,16 @@ public class Menu {
     }
 
     private void iniciarNovaVenda() {
+        
         Loja loja = lojaManager.getLojaAtual();
+        if (!usuarioAutenticado.isAdmin()) {
+            String idLoja = lerTexto("ID da loja: ");
+            if (!lojaManager.selecionarLoja(idLoja)) {
+                System.out.println("Loja nao encontrada.");
+                return;
+            }
+            loja = lojaManager.getLojaAtual();
+        }
         if (loja == null) { System.out.println("Selecione uma loja primeiro."); return; }
         if (loja.listarProdutos().isEmpty()) { System.out.println("A loja nao possui produtos."); return; }
         List<ItemVenda> itens = new ArrayList<>();
@@ -338,6 +478,7 @@ public class Menu {
     }
 
     private void verHistoricoVendas() {
+        
         Loja loja = lojaManager.getLojaAtual();
         if (loja == null) { System.out.println("Selecione uma loja primeiro."); return; }
         if (loja.listarVendas().isEmpty()) { System.out.println("Sem vendas registadas."); return; }
@@ -348,12 +489,14 @@ public class Menu {
     }
 
     private void verValorTotalVendas() {
+        
         Loja loja = lojaManager.getLojaAtual();
         if (loja == null) { System.out.println("Selecione uma loja primeiro."); return; }
         System.out.println("Valor total vendido: " + String.format("%.2f", loja.obterTotalVendas()));
     }
 
     private void relatorioInventarioCompleto() {
+        
         List<Loja> lojas = inventarioManager.getLojasOrdenadas();
         if (lojas.isEmpty()) { System.out.println("Nenhuma loja registada."); return; }
         for (Loja loja : lojas) {
@@ -363,6 +506,7 @@ public class Menu {
     }
 
     private void mostrarInformacoesSistema() {
+        
         System.out.println("Nome do sistema: Sistema de Gestao de Inventario");
         System.out.println("Versao: v1.0");
         System.out.println("Disciplina: Programacao II");
@@ -371,6 +515,7 @@ public class Menu {
     }
 
     private void inserirDadosTeste() {
+        
         if (!inventarioManager.existeLoja("L001")) {
             Loja loja = new Loja("L001", "Loja Centro", "Rua Principal, 10", "211234567");
             loja.adicionarProduto(new Produto("P001", "Arroz 5kg", "Arroz branco", 5.99, 25, 5));
@@ -387,6 +532,7 @@ public class Menu {
     }
 
     private int lerInteiro(String prompt) {
+        
         while (true) {
             System.out.print(prompt);
             try {
@@ -398,6 +544,7 @@ public class Menu {
     }
 
     private double lerDouble(String prompt) {
+        
         while (true) {
             System.out.print(prompt);
             try {
@@ -409,6 +556,7 @@ public class Menu {
     }
 
     private void deletarProduto() {
+        
         Loja loja = lojaManager.getLojaAtual();
         if (loja == null) { System.out.println("Selecione uma loja primeiro."); return; }
         String idProduto = lerTexto("ID do produto a deletar: ");
@@ -420,6 +568,7 @@ public class Menu {
     }
 
     private void deletarLoja() {
+        
         String idLoja = lerTexto("ID da loja a deletar: ");
         if (inventarioManager.deletarLoja(idLoja)) {
             salvarDados();
@@ -429,7 +578,25 @@ public class Menu {
         }
     }
 
+    private void importarLojaCSV() {
+        
+        String caminho = lerTexto("Caminho do ficheiro CSV: ");
+        try {
+            Loja loja = gestorFicheiros.importarLojaCSV(caminho);
+            if (inventarioManager.existeLoja(loja.getIdLoja())) {
+                System.out.println("Ja existe uma loja com este ID: " + loja.getIdLoja());
+                return;
+            }
+            inventarioManager.adicionarLoja(loja);
+            salvarDados();
+            System.out.println("Loja importada com sucesso: " + loja.getNome());
+        } catch (IllegalArgumentException e) {
+            System.out.println("Erro ao importar CSV: " + e.getMessage());
+        }
+    }
+
     private String lerTexto(String prompt) {
+        
         while (true) {
             System.out.print(prompt);
             String texto = scanner.nextLine().trim();
@@ -439,5 +606,27 @@ public class Menu {
             }
             return texto;
         }
+    }
+
+    private Usuario.Perfil lerPerfilUsuario(String prompt) {
+        while (true) {
+            String valor = lerTexto(prompt).toUpperCase();
+            if ("ADMIN".equals(valor)) {
+                return Usuario.Perfil.ADMIN;
+            }
+            if ("NORMAL".equals(valor)) {
+                return Usuario.Perfil.NORMAL;
+            }
+            System.out.println("Perfil invalido. Use ADMIN ou NORMAL.");
+        }
+    }
+
+    private boolean existeAdministrador() {
+        for (Usuario usuario : usuarioManager.listarUsuarios()) {
+            if (usuario.isAdmin()) {
+                return true;
+            }
+        }
+        return false;
     }
 }
