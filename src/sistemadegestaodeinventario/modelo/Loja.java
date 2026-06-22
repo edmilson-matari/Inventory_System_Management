@@ -76,8 +76,11 @@ public class Loja {
 		produtos.add(produto);
 	}
 
-	public void removerProduto(String idProduto) {
-		produtos.removeIf(produto -> produto.getIdProduto().equals(idProduto));
+	public boolean removerProduto(String idProduto) {
+		if (idProduto == null) {
+			return false;
+		}
+		return produtos.removeIf(produto -> produto.getIdProduto().equals(idProduto));
 	}
 
 	public Produto consultarProduto(String idProduto) {

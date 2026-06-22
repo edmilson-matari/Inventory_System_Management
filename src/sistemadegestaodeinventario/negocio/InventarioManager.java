@@ -122,6 +122,9 @@ public class InventarioManager {
 	}
 
 	public boolean deletarLoja(String idLoja) {
+		if (idLoja == null) {
+			return false;
+		}
 		return lojas.remove(idLoja) != null;
 	}
 

@@ -84,6 +84,7 @@ public class Menu {
 
     private boolean executarSessaoAdmin() {
         boolean ativo = true;
+        clearTerminal();
         while (ativo && usuarioAutenticado != null && usuarioAutenticado.isAdmin()) {
             exibirMenuPrincipalAdmin();
             int opcao = lerInteiro("Escolha uma opcao: ");
@@ -102,6 +103,7 @@ public class Menu {
                 default -> System.out.println("Opcao invalida.");
             }
         }
+        clearTerminal();
         return ativo;
     }
 
@@ -128,7 +130,7 @@ public class Menu {
         String credencial = lerTexto("Email/Telefone: ");
         String senha = lerTexto("Senha: ");
         Usuario usuario = usuarioManager.autenticar(credencial, senha);
-        
+        clearTerminal();
         if (usuario != null && !usuario.isAdmin()) {
             usuarioAutenticado = usuario;
             System.out.println("Login efetuado com sucesso.");
@@ -148,7 +150,7 @@ public class Menu {
         String credencial = lerTexto("Email/Telefone: ");
         String senha = lerTexto("Senha: ");
         Usuario usuario = usuarioManager.autenticar(credencial, senha);
-        
+        clearTerminal();
         if (usuario != null && usuario.isAdmin()) {
             usuarioAutenticado = usuario;
             System.out.println("Login de administrador efetuado com sucesso.");
@@ -214,7 +216,7 @@ public class Menu {
     }
 
     private void menuLojas() {
-        
+        clearTerminal();
         boolean voltar = false;
         while (!voltar) {
             System.out.println("===================");
@@ -241,7 +243,7 @@ public class Menu {
     }
 
     private void menuProdutos() {
-        
+        clearTerminal();
         boolean voltar = false;
         while (!voltar) {
             System.out.println("=====================");
@@ -268,7 +270,7 @@ public class Menu {
     }
 
     private void menuVendas() {
-        
+        clearTerminal();
         boolean voltar = false;
         while (!voltar) {
             System.out.println("===================");
@@ -289,7 +291,7 @@ public class Menu {
     }
 
     private void menuRelatorios() {
-        
+        clearTerminal();
         boolean voltar = false;
         while (!voltar) {
             System.out.println("==============");
@@ -311,7 +313,7 @@ public class Menu {
     }
 
     private void menuConfiguracao() {
-        
+        clearTerminal();
         boolean voltar = false;
         while (!voltar) {
             System.out.println("================");
@@ -334,7 +336,7 @@ public class Menu {
     }
 
     private void menuUsuarios() {
-        
+        clearTerminal();
         boolean voltar = false;
         while (!voltar) {
             System.out.println("==========================");
@@ -562,7 +564,7 @@ public class Menu {
         String idProduto = lerTexto("ID do produto a deletar: ");
         Produto produto = loja.consultarProduto(idProduto);
         if (produto == null) { System.out.println("Produto nao encontrado."); return; }
-        loja.removerProduto(idProduto);
+        lojaManager.deletarProduto(idProduto);
         salvarDados();
         System.out.println("Produto deletado com sucesso.");
     }
@@ -570,7 +572,8 @@ public class Menu {
     private void deletarLoja() {
         
         String idLoja = lerTexto("ID da loja a deletar: ");
-        if (inventarioManager.deletarLoja(idLoja)) {
+        if (lojaManager.deletarLoja(idLoja)) {
+            gestorFicheiros.deletarDadosLoja(idLoja);
             salvarDados();
             System.out.println("Loja deletada com sucesso.");
         } else {

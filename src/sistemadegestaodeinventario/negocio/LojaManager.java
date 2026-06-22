@@ -30,6 +30,14 @@ public class LojaManager {
 		inventarioManager.adicionarLoja(loja);
 	}
 
+	public boolean deletarLoja(String idLoja) {
+		boolean deletada = inventarioManager.deletarLoja(idLoja);
+		if (deletada && lojaAtual != null && lojaAtual.getIdLoja().equals(idLoja)) {
+			lojaAtual = null;
+		}
+		return deletada;
+	}
+
 	public void adicionarProduto(Produto produto) {
 		if (lojaAtual == null) {
 			throw new IllegalStateException("Nenhuma loja está selecionada.");
@@ -42,6 +50,13 @@ public class LojaManager {
 			return null;
 		}
 		return lojaAtual.consultarProduto(idProduto);
+	}
+
+	public boolean deletarProduto(String idProduto) {
+		if (lojaAtual == null) {
+			throw new IllegalStateException("Nenhuma loja está selecionada.");
+		}
+		return lojaAtual.removerProduto(idProduto);
 	}
 
 	public List<Produto> listarProdutos() {

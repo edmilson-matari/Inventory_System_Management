@@ -1,2 +1,0 @@
-P100|Arroz 5kg|Arroz branco|5.99|25|5
-P101|Oleo 1L|Oleo alimentar|3.5|18|4

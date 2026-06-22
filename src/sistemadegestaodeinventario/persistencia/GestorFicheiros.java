@@ -104,6 +104,18 @@ public class GestorFicheiros {
 		escreverLinhas(ficheiro, linhas);
 	}
 
+	public void deletarDadosLoja(String idLoja) {
+		if (idLoja == null || idLoja.trim().isEmpty()) {
+			return;
+		}
+		try {
+			Files.deleteIfExists(dataDir.resolve(nomeFicheiroProdutos(idLoja)));
+			Files.deleteIfExists(dataDir.resolve(nomeFicheiroVendas(idLoja)));
+		} catch (IOException e) {
+			throw new IllegalStateException("Erro ao deletar ficheiros da loja: " + idLoja, e);
+		}
+	}
+
 	public void salvarProdutos(Loja loja) {
 		Path ficheiro = dataDir.resolve(nomeFicheiroProdutos(loja.getIdLoja()));
 		List<String> linhas = new ArrayList<>();
