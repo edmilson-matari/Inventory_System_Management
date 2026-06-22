@@ -39,13 +39,15 @@ public class Menu {
         boolean ativo = true;
         while (ativo && usuarioAutenticado == null) {
             System.out.println("AUTENTICACAO DE USUARIO");
-            System.out.println("1. Login Normal");
-            System.out.println("2. Login Admin");
+            System.out.println("1. Login Vendedor");
+            System.out.println("2. Login Gestor de Stock");
+            System.out.println("3. Login Admin");
             System.out.println("0. Sair");
             int op = lerInteiro("Escolha uma opcao: ");
             switch (op) {
-                case 1 -> fazerLoginNormal();
-                case 2 -> fazerLoginAdmin();
+                case 1 -> fazerLoginVendedor();
+                case 2 -> fazerLoginGestorStock();
+                case 3 -> fazerLoginAdmin();
                 case 0 -> ativo = false;
                 default -> System.out.println("Opcao invalida.");
             }
@@ -53,8 +55,10 @@ public class Menu {
         while (ativo && usuarioAutenticado != null) {
             if (usuarioAutenticado.isAdmin()) {
                 ativo = executarSessaoAdmin();
+            } else if (usuarioAutenticado.isGestorStock()) {
+                ativo = executarSessaoGestorStock();
             } else {
-                ativo = executarSessaoNormal();
+                ativo = executarSessaoVendedor();
             }
         }
         scanner.close();
@@ -72,9 +76,9 @@ public class Menu {
         }
         if (!existeAdministrador()) {
             usuarioManager.adicionarUsuario(new Usuario(ADMIN_PADRAO_CREDENCIAL, ADMIN_PADRAO_SENHA, Usuario.Perfil.ADMIN));
-            salvarDados();
             System.out.println("Conta admin inicial criada: " + ADMIN_PADRAO_CREDENCIAL + " / " + ADMIN_PADRAO_SENHA);
         }
+        gestorFicheiros.salvarUsuarios(usuarioManager.listarUsuarios());
     }
 
     private void salvarDados() {
@@ -107,13 +111,43 @@ public class Menu {
         return ativo;
     }
 
-    private boolean executarSessaoNormal() {
+    private boolean executarSessaoGestorStock() {
         boolean ativo = true;
-        while (ativo && usuarioAutenticado != null && !usuarioAutenticado.isAdmin()) {
-            exibirMenuPrincipalNormal();
+        clearTerminal();
+        while (ativo && usuarioAutenticado != null && usuarioAutenticado.isGestorStock()) {
+            exibirMenuPrincipalGestorStock();
             int opcao = lerInteiro("Escolha uma opcao: ");
             switch (opcao) {
-                case 1 -> iniciarNovaVenda();
+                case 1 -> menuLojas();
+                case 2 -> menuProdutos();
+                case 3 -> menuVendas();
+                case 4 -> menuRelatorios();
+                case 5 -> menuConfiguracao();
+                case 0 -> {
+                    salvarDados();
+                    usuarioAutenticado = null;
+                    ativo = false;
+                    System.out.println("Sessao terminada com sucesso.");
+                }
+                default -> System.out.println("Opcao invalida.");
+            }
+        }
+        clearTerminal();
+        return ativo;
+    }
+
+    private boolean executarSessaoVendedor() {
+        boolean ativo = true;
+        if (!selecionarLojaDoVendedor()) {
+            usuarioAutenticado = null;
+            return false;
+        }
+        while (ativo && usuarioAutenticado != null && usuarioAutenticado.isVendedor()) {
+            exibirMenuPrincipalVendedor();
+            int opcao = lerInteiro("Escolha uma opcao: ");
+            switch (opcao) {
+                case 1 -> consultarStockProduto();
+                case 2 -> iniciarNovaVenda();
                 case 0 -> {
                     salvarDados();
                     usuarioAutenticado = null;
@@ -126,19 +160,12 @@ public class Menu {
         return ativo;
     }
 
-    private void fazerLoginNormal() {
-        String credencial = lerTexto("Email/Telefone: ");
-        String senha = lerTexto("Senha: ");
-        Usuario usuario = usuarioManager.autenticar(credencial, senha);
-        clearTerminal();
-        if (usuario != null && !usuario.isAdmin()) {
-            usuarioAutenticado = usuario;
-            System.out.println("Login efetuado com sucesso.");
-        } else if (usuario != null) {
-            System.out.println("Esta conta é de administrador. Use o login de admin.");
-        } else {
-            System.out.println("Credenciais invalidas.");
-        }
+    private void fazerLoginVendedor() {
+        fazerLogin(Usuario.Perfil.VENDEDOR);
+    }
+
+    private void fazerLoginGestorStock() {
+        fazerLogin(Usuario.Perfil.GESTOR_STOCK);
     }
 
     private void clearTerminal() {
@@ -147,17 +174,49 @@ public class Menu {
     }
 
     private void fazerLoginAdmin() {
-        String credencial = lerTexto("Email/Telefone: ");
-        String senha = lerTexto("Senha: ");
-        Usuario usuario = usuarioManager.autenticar(credencial, senha);
-        clearTerminal();
-        if (usuario != null && usuario.isAdmin()) {
-            usuarioAutenticado = usuario;
-            System.out.println("Login de administrador efetuado com sucesso.");
-        } else if (usuario != null) {
-            System.out.println("Esta conta é normal. Use o login normal.");
-        } else {
-            System.out.println("Credenciais invalidas.");
+        fazerLogin(Usuario.Perfil.ADMIN);
+    }
+
+    private void fazerLogin(Usuario.Perfil perfilEsperado) {
+        while (usuarioAutenticado == null) {
+            String credencial = lerTexto("Email/Telefone (0 para voltar): ");
+            if ("0".equals(credencial)) {
+                clearTerminal();
+                return;
+            }
+
+            Usuario usuario = usuarioManager.buscarPorCredencial(credencial);
+            if (usuario == null) {
+                clearTerminal();
+                System.out.println("Login incorreto.");
+                continue;
+            }
+
+            while (usuarioAutenticado == null) {
+                String senha = lerTexto("Senha (0 para voltar): ");
+                if ("0".equals(senha)) {
+                    clearTerminal();
+                    return;
+                }
+
+                clearTerminal();
+                if (!usuario.senhaCorreta(senha)) {
+                    System.out.println("Senha incorreta.");
+                    continue;
+                }
+
+                if (usuario.getPerfil() != perfilEsperado) {
+                    System.out.println("Esta conta é " + nomePerfil(usuario.getPerfil()) + ". Use a opcao correta de login.");
+                    return;
+                }
+
+                usuarioAutenticado = usuario;
+                if (usuario.isVendedor() && !selecionarLojaDoVendedor()) {
+                    usuarioAutenticado = null;
+                    return;
+                }
+                System.out.println("Login de " + nomePerfil(usuario.getPerfil()) + " efetuado com sucesso.");
+            }
         }
     }
 
@@ -187,8 +246,16 @@ public class Menu {
             }
             break;
         }
-        Usuario.Perfil perfil = lerPerfilUsuario("Perfil (ADMIN/NORMAL): ");
-        Usuario usuario = new Usuario(credencial, senha, perfil);
+        Usuario.Perfil perfil = lerPerfilUsuario("Perfil (ADMIN/GESTOR_STOCK/VENDEDOR): ");
+        String idLoja = "";
+        if (perfil == Usuario.Perfil.VENDEDOR) {
+            if (inventarioManager.getLojasOrdenadas().isEmpty()) {
+                System.out.println("Cadastre uma loja antes de criar um vendedor.");
+                return;
+            }
+            idLoja = lerLojaExistente("ID da loja do vendedor: ");
+        }
+        Usuario usuario = new Usuario(credencial, senha, perfil, idLoja);
         usuarioManager.adicionarUsuario(usuario);
         salvarDados();
         System.out.println("Usuario criado com sucesso.");
@@ -207,11 +274,24 @@ public class Menu {
         System.out.println("0. Terminar Sessao");
     }
 
-    private void exibirMenuPrincipalNormal() {
-        System.out.println("=====================================");
-        System.out.println("| MENU PRINCIPAL - UTILIZADOR NORMAL |");
-        System.out.println("=====================================");
-        System.out.println("1. Registar Vendas");
+    private void exibirMenuPrincipalGestorStock() {
+        System.out.println("=================================");
+        System.out.println("| MENU PRINCIPAL - GESTOR STOCK |");
+        System.out.println("=================================");
+        System.out.println("1. Gestao de Lojas");
+        System.out.println("2. Gestao de Produtos");
+        System.out.println("3. Registar Vendas");
+        System.out.println("4. Relatorios e Consultas");
+        System.out.println("5. Configuracao do Sistema");
+        System.out.println("0. Terminar Sessao");
+    }
+
+    private void exibirMenuPrincipalVendedor() {
+        System.out.println("==============================");
+        System.out.println("| MENU PRINCIPAL - VENDEDOR |");
+        System.out.println("==============================");
+        System.out.println("1. Consultar Stock");
+        System.out.println("2. Registar Venda");
         System.out.println("0. Terminar Sessao");
     }
 
@@ -322,13 +402,18 @@ public class Menu {
             System.out.println("1. Informacoes do Sistema");
             System.out.println("2. Criar Backup de Dados");
             System.out.println("3. Dados de Teste");
-            System.out.println("4. Gestao de Utilizadores");
+            if (usuarioAutenticado.isAdmin()) {
+                System.out.println("4. Gestao de Utilizadores");
+            }
             System.out.println("0. Voltar ao Menu Principal");
             switch (lerInteiro("Escolha uma opcao: ")) {
                 case 1 -> mostrarInformacoesSistema();
                 case 2 -> { gestorFicheiros.criarBackup(); System.out.println("Backup criado com sucesso."); }
                 case 3 -> inserirDadosTeste();
-                case 4 -> menuUsuarios();
+                case 4 -> {
+                    if (usuarioAutenticado.isAdmin()) menuUsuarios();
+                    else System.out.println("Opcao invalida.");
+                }
                 case 0 -> voltar = true;
                 default -> System.out.println("Opcao invalida.");
             }
@@ -447,9 +532,14 @@ public class Menu {
     }
 
     private void iniciarNovaVenda() {
-        
+        clearTerminal();
         Loja loja = lojaManager.getLojaAtual();
-        if (!usuarioAutenticado.isAdmin()) {
+        if (usuarioAutenticado.isVendedor()) {
+            if (!selecionarLojaDoVendedor()) {
+                return;
+            }
+            loja = lojaManager.getLojaAtual();
+        } else if (loja == null) {
             String idLoja = lerTexto("ID da loja: ");
             if (!lojaManager.selecionarLoja(idLoja)) {
                 System.out.println("Loja nao encontrada.");
@@ -572,6 +662,10 @@ public class Menu {
     private void deletarLoja() {
         
         String idLoja = lerTexto("ID da loja a deletar: ");
+        if (existeVendedorAssociadoLoja(idLoja)) {
+            System.out.println("Nao e possivel deletar a loja. Existe vendedor associado a esta loja.");
+            return;
+        }
         if (lojaManager.deletarLoja(idLoja)) {
             gestorFicheiros.deletarDadosLoja(idLoja);
             salvarDados();
@@ -617,11 +711,59 @@ public class Menu {
             if ("ADMIN".equals(valor)) {
                 return Usuario.Perfil.ADMIN;
             }
-            if ("NORMAL".equals(valor)) {
-                return Usuario.Perfil.NORMAL;
+            if ("GESTOR".equals(valor) || "GESTOR_STOCK".equals(valor) || "GESTOR DE STOCK".equals(valor)) {
+                return Usuario.Perfil.GESTOR_STOCK;
             }
-            System.out.println("Perfil invalido. Use ADMIN ou NORMAL.");
+            if ("VENDEDOR".equals(valor) || "USUARIO".equals(valor) || "UTILIZADOR".equals(valor)) {
+                return Usuario.Perfil.VENDEDOR;
+            }
+            System.out.println("Perfil invalido. Use ADMIN, GESTOR_STOCK ou VENDEDOR.");
         }
+    }
+
+    private String lerLojaExistente(String prompt) {
+        while (true) {
+            String idLoja = lerTexto(prompt);
+            if (inventarioManager.existeLoja(idLoja)) {
+                return idLoja;
+            }
+            System.out.println("Loja nao encontrada. Cadastre ou informe uma loja existente.");
+        }
+    }
+
+    private boolean selecionarLojaDoVendedor() {
+        if (usuarioAutenticado == null || !usuarioAutenticado.isVendedor()) {
+            return true;
+        }
+        String idLoja = usuarioAutenticado.getIdLoja();
+        if (idLoja == null || idLoja.isBlank()) {
+            System.out.println("Este vendedor nao esta associado a nenhuma loja.");
+            return false;
+        }
+        if (!lojaManager.selecionarLoja(idLoja)) {
+            System.out.println("A loja associada ao vendedor nao foi encontrada: " + idLoja);
+            return false;
+        }
+        return true;
+    }
+
+    private String nomePerfil(Usuario.Perfil perfil) {
+        if (perfil == Usuario.Perfil.ADMIN) {
+            return "administrador";
+        }
+        if (perfil == Usuario.Perfil.GESTOR_STOCK) {
+            return "gestor de stock";
+        }
+        return "vendedor";
+    }
+
+    private boolean existeVendedorAssociadoLoja(String idLoja) {
+        for (Usuario usuario : usuarioManager.listarUsuarios()) {
+            if (usuario.isVendedor() && usuario.getIdLoja().equals(idLoja)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean existeAdministrador() {

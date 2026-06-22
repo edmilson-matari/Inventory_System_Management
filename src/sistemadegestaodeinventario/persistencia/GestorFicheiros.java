@@ -42,8 +42,9 @@ public class GestorFicheiros {
 				}
 				String[] partes = linha.split("\\|", -1);
 				if (partes.length >= 2) {
-					Usuario.Perfil perfil = partes.length >= 3 ? lerPerfil(partes[2]) : Usuario.Perfil.NORMAL;
-					usuarios.add(new Usuario(partes[0], partes[1], perfil));
+					Usuario.Perfil perfil = partes.length >= 3 ? lerPerfil(partes[2]) : Usuario.Perfil.VENDEDOR;
+					String idLoja = partes.length >= 4 ? partes[3] : "";
+					usuarios.add(new Usuario(partes[0], partes[1], perfil, idLoja));
 				}
 			}
 		} catch (IOException e) {
@@ -59,7 +60,8 @@ public class GestorFicheiros {
 			linhas.add(String.join("|",
 				usuario.getEmailOuTelefone(),
 				usuario.getSenha(),
-				usuario.getPerfil().name()));
+				usuario.getPerfil().name(),
+				usuario.getIdLoja()));
 		}
 		escreverLinhas(ficheiro, linhas);
 	}
@@ -275,12 +277,19 @@ public class GestorFicheiros {
 
 	private Usuario.Perfil lerPerfil(String valor) {
 		if (valor == null) {
-			return Usuario.Perfil.NORMAL;
+			return Usuario.Perfil.VENDEDOR;
+		}
+		String perfil = valor.trim().toUpperCase();
+		if ("NORMAL".equals(perfil) || "USUARIO".equals(perfil) || "UTILIZADOR".equals(perfil)) {
+			return Usuario.Perfil.VENDEDOR;
+		}
+		if ("GESTOR".equals(perfil) || "GESTOR_DE_STOCK".equals(perfil)) {
+			return Usuario.Perfil.GESTOR_STOCK;
 		}
 		try {
-			return Usuario.Perfil.valueOf(valor.trim().toUpperCase());
+			return Usuario.Perfil.valueOf(perfil);
 		} catch (IllegalArgumentException e) {
-			return Usuario.Perfil.NORMAL;
+			return Usuario.Perfil.VENDEDOR;
 		}
 	}
 
