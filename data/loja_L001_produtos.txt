@@ -1,2 +1,2 @@
-P001|Arroz 5kg|Arroz branco|5.99|25|5
-P002|Oleo 1L|Oleo alimentar|3.5|18|4
+P001 | Arroz 5kg | Arroz branco | 5.99 | 25 | 5
+P002 | Oleo 1L | Oleo alimentar | 3.5 | 18 | 4

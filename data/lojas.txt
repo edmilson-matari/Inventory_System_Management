@@ -1,2 +1,2 @@
-L001|Loja Centro|Rua Principal, 10|211234567
-L002|Loja Norte|Av. da Republica, 50|218765432
+L001 | Loja Centro | Rua Principal, 10 | 211234567
+L002 | Loja Norte | Av. da Republica, 50 | 218765432

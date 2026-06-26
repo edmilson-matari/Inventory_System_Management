@@ -1,1 +1,1 @@
-P003|Acucar 1kg|Acucar branco|1.29|40|8
+P003 | Acucar 1kg | Acucar branco | 1.29 | 40 | 8

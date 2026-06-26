@@ -19,6 +19,9 @@ import sistemadegestaodeinventario.modelo.Venda;
 
 public class GestorFicheiros {
 
+	private static final String TXT_SEPARADOR = " | ";
+	private static final String CSV_SEPARADOR = ", ";
+
 	private final Path dataDir = Paths.get("data");
 
 	public GestorFicheiros() {
@@ -41,6 +44,7 @@ public class GestorFicheiros {
 					continue;
 				}
 				String[] partes = linha.split("\\|", -1);
+				partes = limparColunas(partes);
 				if (partes.length >= 2) {
 					Usuario.Perfil perfil = partes.length >= 3 ? lerPerfil(partes[2]) : Usuario.Perfil.VENDEDOR;
 					String idLoja = partes.length >= 4 ? partes[3] : "";
@@ -57,7 +61,7 @@ public class GestorFicheiros {
 		Path ficheiro = dataDir.resolve("usuarios.txt");
 		List<String> linhas = new ArrayList<>();
 		for (Usuario usuario : usuarios) {
-			linhas.add(String.join("|",
+			linhas.add(String.join(TXT_SEPARADOR,
 				usuario.getEmailOuTelefone(),
 				usuario.getSenha(),
 				usuario.getPerfil().name(),
@@ -78,6 +82,7 @@ public class GestorFicheiros {
 					continue;
 				}
 				String[] partes = linha.split("\\|", -1);
+				partes = limparColunas(partes);
 				if (partes.length >= 4) {
 					Loja loja = new Loja(partes[0], partes[1], partes[2], partes[3]);
 					carregarProdutos(loja);
@@ -98,7 +103,7 @@ public class GestorFicheiros {
 		Path ficheiro = dataDir.resolve("lojas.txt");
 		List<String> linhas = new ArrayList<>();
 		for (Loja loja : lojas) {
-			linhas.add(String.join("|",
+			linhas.add(String.join(TXT_SEPARADOR,
 				loja.getIdLoja(), loja.getNome(), loja.getEndereco(), loja.getTelefone()));
 			salvarProdutos(loja);
 			salvarVendas(loja.getIdLoja(), loja.listarVendas());
@@ -122,7 +127,7 @@ public class GestorFicheiros {
 		Path ficheiro = dataDir.resolve(nomeFicheiroProdutos(loja.getIdLoja()));
 		List<String> linhas = new ArrayList<>();
 		for (Produto produto : loja.listarProdutos()) {
-			linhas.add(String.join("|",
+			linhas.add(String.join(TXT_SEPARADOR,
 				produto.getIdProduto(),
 				produto.getNome(),
 				produto.getDescricao(),
@@ -144,6 +149,7 @@ public class GestorFicheiros {
 					continue;
 				}
 				String[] partes = linha.split("\\|", -1);
+				partes = limparColunas(partes);
 				if (partes.length >= 6) {
 					loja.adicionarProduto(new Produto(
 						partes[0],
@@ -162,10 +168,10 @@ public class GestorFicheiros {
 	public void salvarVendas(String idLoja, List<Venda> vendas) {
 		Path ficheiro = dataDir.resolve(nomeFicheiroVendas(idLoja));
 		List<String> linhas = new ArrayList<>();
-		linhas.add("ID_VENDA,DATA_VENDA,ID_LOJA,ID_PRODUTO,NOME_PRODUTO,QUANTIDADE,PRECO_UNITARIO,SUBTOTAL");
+		linhas.add(String.join(CSV_SEPARADOR, "ID_VENDA", "DATA_VENDA", "ID_LOJA", "ID_PRODUTO", "NOME_PRODUTO", "QUANTIDADE", "PRECO_UNITARIO", "SUBTOTAL"));
 		for (Venda venda : vendas) {
 			for (ItemVenda item : venda.getItensVenda()) {
-				linhas.add(String.join(",",
+				linhas.add(String.join(CSV_SEPARADOR,
 					venda.getIdVenda(),
 					venda.getDataVenda().toString(),
 					venda.getIdLoja(),
@@ -194,6 +200,7 @@ public class GestorFicheiros {
 					continue;
 				}
 				String[] partes = linha.split(",", -1);
+				partes = limparColunas(partes);
 				if (partes.length >= 8) {
 					Venda venda = porId.get(partes[0]);
 					if (venda == null) {
@@ -230,6 +237,7 @@ public class GestorFicheiros {
 			}
 			String cabecalho = linhas.get(index).trim();
 			String[] partesLoja = cabecalho.split(",", -1);
+			partesLoja = limparColunas(partesLoja);
 			if (partesLoja.length < 4) {
 				throw new IllegalArgumentException("Cabecalho da loja invalido. Formato esperado: id,nome,morada,telefone");
 			}
@@ -240,6 +248,7 @@ public class GestorFicheiros {
 					continue;
 				}
 				String[] p = linha.split(",", -1);
+				p = limparColunas(p);
 				if (p.length < 6) {
 					throw new IllegalArgumentException("Linha de produto invalida na linha " + (i + 1) + ". Formato esperado: id,nome,descricao,preco,quantidade,quantidadeMinima");
 				}
@@ -293,6 +302,13 @@ public class GestorFicheiros {
 		}
 	}
 
+	private String[] limparColunas(String[] colunas) {
+		for (int i = 0; i < colunas.length; i++) {
+			colunas[i] = colunas[i].trim();
+		}
+		return colunas;
+	}
+
 	private void copiarSeExistir(Path origem, Path destino) throws IOException {
 		if (Files.exists(origem)) {
 			Files.copy(origem, destino, StandardCopyOption.REPLACE_EXISTING);
@@ -302,7 +318,11 @@ public class GestorFicheiros {
 	private void escreverLinhas(Path ficheiro, List<String> linhas) {
 		try {
 			Files.createDirectories(ficheiro.getParent());
-			Files.write(ficheiro, linhas, StandardCharsets.UTF_8);
+			List<String> linhasNormalizadas = new ArrayList<>();
+			for (String linha : linhas) {
+				linhasNormalizadas.add(linha.stripTrailing());
+			}
+			Files.write(ficheiro, linhasNormalizadas, StandardCharsets.UTF_8);
 		} catch (IOException e) {
 			throw new IllegalStateException("Erro ao escrever ficheiro: " + ficheiro, e);
 		}
