@@ -39,6 +39,14 @@ public class UsuarioManager {
         return null;
     }
 
+    public boolean removerUsuario(String credencial) {
+        Usuario usuario = buscarPorCredencial(credencial);
+        if (usuario == null) {
+            return false;
+        }
+        return usuarios.remove(usuario);
+    }
+
     public Usuario autenticar(String credencial, String senha) {
         Usuario usuario = buscarPorCredencial(credencial);
         if (usuario != null && usuario.autenticar(credencial.trim(), senha)) {
